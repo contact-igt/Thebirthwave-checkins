@@ -127,9 +127,10 @@ export function createRegistrationHandler({ store, limiter, now = () => new Date
       const saved = await pending.promise;
       return respond(201, publicReceipt(saved));
     } catch (err) {
-      // Cause only (error code/message): never the submitted record.
-      const cause = err instanceof Error ? `${(err as { code?: string }).code ?? "error"}: ${err.message}` : "unknown";
-      console.error(`registration: storage failed (${cause.replace(/postgres(ql)?:\/\/\S+/g, "<redacted>")})`);
+      // Error class and code only (e.g. ECONNREFUSED, 28P01): messages can quote submitted values.
+      const code = (err as { code?: unknown } | null)?.code;
+      const kind = err instanceof Error ? err.name : "unknown";
+      console.error(`registration: storage failed (${kind}${typeof code === "string" ? ` ${code}` : ""})`);
       return fail(502, "storage_failed", "We couldn’t save your registration. Your answers are still here, so please try again.");
     }
   };
