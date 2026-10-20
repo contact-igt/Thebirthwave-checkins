@@ -126,8 +126,10 @@ export function createRegistrationHandler({ store, limiter, now = () => new Date
     try {
       const saved = await pending.promise;
       return respond(201, publicReceipt(saved));
-    } catch {
-      console.error("registration: storage failed");
+    } catch (err) {
+      // Cause only (error code/message): never the submitted record.
+      const cause = err instanceof Error ? `${(err as { code?: string }).code ?? "error"}: ${err.message}` : "unknown";
+      console.error(`registration: storage failed (${cause.replace(/postgres(ql)?:\/\/\S+/g, "<redacted>")})`);
       return fail(502, "storage_failed", "We couldn’t save your registration. Your answers are still here, so please try again.");
     }
   };
