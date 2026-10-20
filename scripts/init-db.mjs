@@ -1,6 +1,10 @@
-﻿import pg from "pg";
+import pg from "pg";
 
-const connectionString = process.env.DATABASE_URL || "postgresql://postgres:rJVMzQoPUvWdvoGHrMRcpGacOXWZzsMN@reseau.proxy.rlwy.net:39128/railway";
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error("DATABASE_URL is required");
+  process.exit(1);
+}
 
 async function main() {
   const { Pool } = pg;

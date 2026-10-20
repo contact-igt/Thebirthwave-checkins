@@ -1,7 +1,7 @@
-﻿import { createPostgresStore, createPostgresStatusClient, createPostgresAdminClient, getPostgresPool } from "../src/lib/registration/postgres-store.ts";
+import { createPostgresStore, createPostgresStatusClient, createPostgresAdminClient, getPostgresPool } from "../src/lib/registration/postgres-store.ts";
 
 async function run() {
-  process.env.DATABASE_URL = "postgresql://postgres:rJVMzQoPUvWdvoGHrMRcpGacOXWZzsMN@reseau.proxy.rlwy.net:39128/railway";
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
   
   const store = createPostgresStore();
   const statusClient = createPostgresStatusClient();
