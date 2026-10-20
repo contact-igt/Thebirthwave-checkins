@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+﻿import type { NextConfig } from "next";
 import { isCheckinApp } from "./src/lib/app-mode";
 
 // Confidential routes: never cached, indexed, framed or leaked via Referer.
@@ -13,6 +13,16 @@ const privateHeaders = [
 const nextConfig: NextConfig = {
   // Lets the marketing build and the check-in build live side by side locally.
   distDir: process.env.NEXT_DIST_DIR || ".next",
+
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/registration",
+        permanent: false,
+      },
+    ];
+  },
 
   async headers() {
     const rules = [
