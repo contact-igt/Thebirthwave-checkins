@@ -43,6 +43,20 @@ async function main() {
 
     CREATE INDEX IF NOT EXISTS idx_registrations_token_hash 
       ON registrations (token_hash);
+
+    CREATE TABLE IF NOT EXISTS crm_outbox (
+      id               BIGSERIAL PRIMARY KEY,
+      registration_id  TEXT NOT NULL UNIQUE REFERENCES registrations (id) ON DELETE CASCADE,
+      payload          JSONB NOT NULL,
+      attempts         INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      delivered_at     TIMESTAMPTZ,
+      last_error       TEXT,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_crm_outbox_due
+      ON crm_outbox (next_attempt_at) WHERE delivered_at IS NULL;
   `);
 
   console.log("Tables created successfully!");

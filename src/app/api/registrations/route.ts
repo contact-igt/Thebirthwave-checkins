@@ -1,3 +1,6 @@
+import { after } from "next/server";
+import { crmConfigFromEnv, dispatchPending } from "@/lib/crm/forward";
+import { getPostgresPool } from "@/lib/registration/postgres-store";
 import { createRegistrationHandler } from "@/lib/registration/handler";
 import { createStoreFromEnv } from "@/lib/registration/store";
 
@@ -12,5 +15,12 @@ const handle = createRegistrationHandler({
 });
 
 export async function POST(request: Request) {
-  return handle(request);
+  const response = await handle(request);
+  // Push the new lead to the CRM right away; the cron retries anything that fails.
+  if (response.status === 201) {
+    const config = crmConfigFromEnv();
+    const pool = getPostgresPool();
+    if (config && pool) after(() => dispatchPending(pool, config).catch(() => undefined));
+  }
+  return response;
 }

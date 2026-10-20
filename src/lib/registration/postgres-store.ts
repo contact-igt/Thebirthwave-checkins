@@ -1,10 +1,12 @@
-﻿import pg from "pg";
+import pg from "pg";
 import crypto from "node:crypto";
 import type { RegistrationRecord } from "./rules.ts";
 import { registrationDateIST } from "./rules.ts";
 import type { RegistrationStore, StatusClient } from "./store.ts";
 import type { AdminClient, QueueEntry } from "../staff/admin.ts";
 import type { QueueState } from "./receipt.ts";
+import { buildLeadEvent } from "../crm/payload.ts";
+import { crmConfigFromEnv } from "../crm/forward.ts";
 
 const { Pool } = pg;
 
@@ -97,9 +99,31 @@ export function createPostgresStore(pool: pg.Pool = getPostgresPool()!): Registr
           [id, context.idempotencyKey, context.clinicId, todayIST, sequence, tokenHash, JSON.stringify(record)]
         );
 
+        const checkedInAt = insertRes.rows[0].checked_in_at;
+
+        // Queue the lead for the CRM in the same transaction. A savepoint keeps a missing or
+        // broken outbox from ever failing the patient's registration (/api/crm/leads backfills).
+        if (crmConfigFromEnv()) {
+          await client.query("SAVEPOINT crm_outbox");
+          try {
+            const event = buildLeadEvent({
+              reference: id,
+              clinicId: context.clinicId,
+              clinicDate: todayIST,
+              registeredAt: new Date(checkedInAt).toISOString(),
+              record,
+            });
+            await client.query(
+              `INSERT INTO crm_outbox (registration_id, payload) VALUES ($1, $2) ON CONFLICT (registration_id) DO NOTHING`,
+              [id, JSON.stringify(event)],
+            );
+          } catch {
+            await client.query("ROLLBACK TO SAVEPOINT crm_outbox");
+          }
+        }
+
         await client.query("COMMIT");
 
-        const checkedInAt = insertRes.rows[0].checked_in_at;
         return {
           id,
           token,
