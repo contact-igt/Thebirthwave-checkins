@@ -1,6 +1,0 @@
-.hero {
-  background-image: linear-gradient(color-mix(in srgb, var(--color-paper) 20%, transparent), color-mix(in srgb, var(--color-paper) 20%, transparent)), url('/images/about/backgrounds/birth-prep-topics-background-v1.png');
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-}

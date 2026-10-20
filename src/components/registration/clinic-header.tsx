@@ -2,12 +2,12 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
-import { contactPlaceholders } from "@/content/contact-content";
+import { clinicContact } from "@/content/clinic-contact";
 import { formatDateIN, registrationDateIST } from "@/lib/registration/rules";
 import s from "./clinic-header.module.css";
 
 const WEEKDAY = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short" });
-const RECEPTION_TEL = `tel:${contactPlaceholders.phone.replace(/[^\d+]/g, "")}`;
+const RECEPTION_TEL = `tel:${clinicContact.phone.replace(/[^\d+]/g, "")}`;
 
 interface Props {
   /** Shown while answering the questionnaire. */
@@ -82,7 +82,7 @@ export function ClinicHeader({ progress, logoInPanel = false }: Props) {
           <p>Our reception team is happy to help with anything at all. Please ask at the front desk, or call us:</p>
           <a href={RECEPTION_TEL}>
             <span className="sr-only">Call reception: </span>
-            {contactPlaceholders.phone}
+            {clinicContact.phone}
           </a>
           <button type="button" onClick={() => setOpen(false)}>
             Close

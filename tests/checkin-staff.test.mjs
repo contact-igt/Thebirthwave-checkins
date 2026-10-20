@@ -17,7 +17,6 @@ const NOW = new Date("2026-10-20T08:00:00Z");
 const recep = auth.hashPassword("reception-pass-1");
 const clin = auth.hashPassword("clinician-pass-2");
 const baseEnv = (backend) => ({
-  CLINIC_APP: "checkin",
   STAFF_CONSOLE_ENABLED: "true",
   STAFF_SESSION_SECRET: SECRET,
   STAFF_ACCOUNTS: JSON.stringify([
@@ -35,11 +34,11 @@ const baseEnv = (backend) => ({
 
 // ---- configuration gates ----------------------------------------------------
 
-test("staff console is off unless every gate is configured, and only on the check-in app", () => {
+test("staff console is off unless every gate is configured, ", () => {
   const backend = createFakeBackend();
   const env = baseEnv(backend);
   assert.ok(auth.loadStaffConfig(env, backend.fetch));
-  for (const drop of ["CLINIC_APP", "STAFF_CONSOLE_ENABLED", "STAFF_SESSION_SECRET", "STAFF_ACCOUNTS", "QUEUE_ADMIN_URL", "QUEUE_ADMIN_TOKEN"]) {
+  for (const drop of ["STAFF_CONSOLE_ENABLED", "STAFF_SESSION_SECRET", "STAFF_ACCOUNTS", "QUEUE_ADMIN_URL", "QUEUE_ADMIN_TOKEN"]) {
     assert.equal(auth.loadStaffConfig({ ...env, [drop]: "" }, backend.fetch), null, drop);
   }
   assert.equal(auth.loadStaffConfig({ ...env, STAFF_SESSION_SECRET: "short" }, backend.fetch), null);

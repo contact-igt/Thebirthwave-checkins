@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { CheckCircle2, RefreshCw } from "lucide-react";
-import { contactPlaceholders } from "@/content/contact-content";
+import { clinicContact } from "@/content/clinic-contact";
 import { startHref, tokenFromHash } from "@/lib/registration/device-mode";
 import { forgetReceipt, recallReceipt } from "@/lib/registration/receipt-memory";
 import type { PatientStatus } from "@/lib/registration/receipt";
@@ -150,7 +150,7 @@ export function ThankYou({ checkin, kiosk }: { checkin: boolean; kiosk: boolean 
   const state = status?.state;
   const summary = waitingSummary(status?.queue);
   const stage = stageOf(state);
-  const phoneHref = `tel:${contactPlaceholders.phone.replace(/[^\d+]/g, "")}`;
+  const phoneHref = `tel:${clinicContact.phone.replace(/[^\d+]/g, "")}`;
 
   if (!mounted) {
     return (
@@ -204,7 +204,7 @@ export function ThankYou({ checkin, kiosk }: { checkin: boolean; kiosk: boolean 
             {!waiting ? (
               <>
                 <a className={s.primary} href={phoneHref}>
-                  Call reception: {contactPlaceholders.phone}
+                  Call reception: {clinicContact.phone}
                 </a>
                 <Link className={s.secondary} href={startHref(checkin, kiosk)}>
                   Start a new registration
@@ -376,7 +376,7 @@ export function ThankYou({ checkin, kiosk }: { checkin: boolean; kiosk: boolean 
           <p>Need anything while you wait? Our reception team is here to help.</p>
           <a className={s.secondary} href={phoneHref}>
             <span className="sr-only">Call reception: </span>
-            {contactPlaceholders.phone}
+            {clinicContact.phone}
           </a>
           <h3 className={s.nextTitle}>What happens next</h3>
           <ol className={s.next}>

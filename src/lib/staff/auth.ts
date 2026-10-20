@@ -1,5 +1,4 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { isCheckinApp } from "../app-mode.ts";
 import { approvedEndpoint } from "../registration/store.ts";
 
 /**
@@ -47,9 +46,9 @@ export function verifyPassword(password: string, stored: string): boolean {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-/** Null unless the console is explicitly enabled AND fully configured, on the check-in app only. */
+/** Null unless the console is explicitly enabled AND fully configured. */
 export function loadStaffConfig(env: Env = process.env): StaffConfig | null {
-  if (!isCheckinApp(env) || env.STAFF_CONSOLE_ENABLED !== "true") return null;
+  if (env.STAFF_CONSOLE_ENABLED !== "true") return null;
   const secret = env.STAFF_SESSION_SECRET ?? "";
   if (secret.length < 32) return null;
   if (!approvedEndpoint(env, "QUEUE_ADMIN_URL", "QUEUE_ADMIN_TOKEN")) return null;

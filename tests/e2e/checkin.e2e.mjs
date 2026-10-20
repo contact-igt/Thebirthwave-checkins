@@ -1,7 +1,7 @@
 /**
- * End-to-end tests for the isolated check-in app (CLINIC_APP=checkin).
+ * End-to-end tests for the isolated check-in app .
  *
- *   npm run build:checkin && npm run test:e2e:checkin
+ *   npm run build && npm run test:e2e:checkin
  *
  * Nothing in the browser is mocked here. The harness starts:
  *   1. a local HTTPS TEST DOUBLE of the clinic backend (tests/support/fake-backend.mjs,
@@ -56,8 +56,8 @@ const seenPhones = new Set();
 // ------------------------------------------------------------------ harness
 
 before(async () => {
-  if (!existsSync(join(root, ".next-checkin"))) {
-    throw new Error("Run `npm run build:checkin` first.");
+  if (!existsSync(join(root, ".next"))) {
+    throw new Error("Run `npm run build` first.");
   }
 
   const tmp = mkdtempSync(join(tmpdir(), "bw-checkin-"));
@@ -74,8 +74,8 @@ before(async () => {
   const { hashPassword } = await import(new URL("../../src/lib/staff/auth.ts", import.meta.url).href);
   const env = {
     ...process.env,
-    CLINIC_APP: "checkin",
-    NEXT_DIST_DIR: ".next-checkin",
+   
+    NEXT_DIST_DIR: ".next",
     NODE_EXTRA_CA_CERTS: cert,
     CLINIC_LOCATION_ID: "main",
     REGISTRATION_ENABLED: "true",

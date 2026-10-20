@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ThankYou } from "@/components/registration/thank-you";
-import { isCheckinApp } from "@/lib/app-mode";
 
 // Patient receipt: never indexed, cached or referred. The receipt token lives
 // only in the URL fragment, which browsers never send to the server.
@@ -23,5 +22,5 @@ export default async function ThankYouPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  return <ThankYou checkin={isCheckinApp()} kiosk={params.kiosk === "1"} />;
+  return <ThankYou checkin kiosk={params.kiosk === "1"} />;
 }
