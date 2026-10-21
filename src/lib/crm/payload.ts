@@ -1,4 +1,4 @@
-import type { RegistrationRecord } from "../registration/rules.ts";
+import type { OpSession, RegistrationRecord } from "../registration/rules.ts";
 
 /** Label the CRM files these leads under, inside its main leads list. */
 export const CRM_LEAD_SOURCE = "clinic_registration";
@@ -10,6 +10,8 @@ export interface CrmLeadEvent {
   reference: string;
   clinicId: string;
   clinicDate: string;
+  /** OP session the registration number belongs to (numbering restarts each session). */
+  session: OpSession;
   registeredAt: string;
   lead: {
     source: typeof CRM_LEAD_SOURCE;
@@ -34,6 +36,7 @@ export function buildLeadEvent(input: {
   reference: string;
   clinicId: string;
   clinicDate: string;
+  session: OpSession;
   registeredAt: string;
   record: RegistrationRecord;
 }): CrmLeadEvent {
@@ -43,6 +46,7 @@ export function buildLeadEvent(input: {
     reference: input.reference,
     clinicId: input.clinicId,
     clinicDate: input.clinicDate,
+    session: input.session,
     registeredAt: input.registeredAt,
     lead: {
       source: CRM_LEAD_SOURCE,

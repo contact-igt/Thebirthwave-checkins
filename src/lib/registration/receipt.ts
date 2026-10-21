@@ -1,4 +1,4 @@
-import { registrationDateIST } from "./rules.ts";
+import { isOpSession, registrationDateIST, type OpSession } from "./rules.ts";
 
 /**
  * Validation of what the approved backend returns after saving a registration
@@ -25,6 +25,8 @@ export interface Receipt {
   dayTotal?: number;
   checkedInAt?: string;
   clinicDate?: string;
+  /** Which OP session the number belongs to (each session is numbered from 001). */
+  session?: OpSession;
 }
 
 export interface QueueInfo {
@@ -39,6 +41,7 @@ export interface PatientStatus {
   dayTotal?: number;
   checkedInAt?: string;
   clinicDate?: string;
+  session?: OpSession;
   state: QueueState;
   updatedAt?: string;
   queue?: QueueInfo;
@@ -69,8 +72,8 @@ function positiveInt(value: unknown, max: number): number | undefined {
 }
 
 /** Day-numbering fields, kept only if they prove they belong to today at this clinic. */
-function parseNumbering(raw: Record<string, unknown>, ctx: Context): Pick<Receipt, "sequence" | "dayTotal" | "checkedInAt" | "clinicDate"> {
-  const out: Pick<Receipt, "sequence" | "dayTotal" | "checkedInAt" | "clinicDate"> = {};
+function parseNumbering(raw: Record<string, unknown>, ctx: Context): Pick<Receipt, "sequence" | "dayTotal" | "checkedInAt" | "clinicDate" | "session"> {
+  const out: Pick<Receipt, "sequence" | "dayTotal" | "checkedInAt" | "clinicDate" | "session"> = {};
 
   const checkedMs = isoMs(raw.checkedInAt);
   if (checkedMs !== null) out.checkedInAt = raw.checkedInAt as string;
@@ -89,6 +92,7 @@ function parseNumbering(raw: Record<string, unknown>, ctx: Context): Pick<Receip
   if (provablyToday) {
     out.sequence = sequence;
     out.clinicDate = clinicDate;
+    if (isOpSession(raw.session)) out.session = raw.session;
     const total = positiveInt(raw.dayTotal, MAX_SEQUENCE);
     if (total !== undefined && total >= sequence) out.dayTotal = total;
   }

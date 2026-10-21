@@ -15,6 +15,14 @@ export async function GET(request: Request) {
 
   const requested = new URL(request.url).searchParams.get("date") ?? "";
   const date = /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : registrationDateIST();
-  const { rows } = await pool.query(`SELECT count(*)::int AS count FROM registrations WHERE clinic_date = $1::date`, [date]);
-  return NextResponse.json({ ok: true, date, count: rows[0].count }, { headers: { "Cache-Control": "no-store" } });
+  const { rows } = await pool.query(
+    `SELECT session, count(*)::int AS count FROM registrations WHERE clinic_date = $1::date GROUP BY session`,
+    [date],
+  );
+  const bySession = { morning: 0, evening: 0 };
+  for (const row of rows) if (row.session in bySession) bySession[row.session as keyof typeof bySession] = row.count;
+  return NextResponse.json(
+    { ok: true, date, count: bySession.morning + bySession.evening, bySession },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

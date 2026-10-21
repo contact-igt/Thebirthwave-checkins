@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { QUEUE_STATES, type QueueState } from "@/lib/registration/receipt";
+import { OP_SESSION_CODE, type OpSession } from "@/lib/registration/rules";
 import { formatSequence, formatTimeIST } from "@/lib/registration/waiting";
 import s from "./staff-console.module.css";
 
@@ -10,6 +11,7 @@ interface Entry {
   id: string;
   reference: string;
   sequence?: number;
+  session?: OpSession;
   displayName: string;
   state: QueueState;
   checkedInAt?: string;
@@ -206,7 +208,10 @@ export function StaffConsole({ enabled }: { enabled: boolean }) {
                   const next = NEXT[entry.state];
                   return (
                     <li key={entry.id} className={s.row}>
-                      <span className={s.seq}>{entry.sequence ? formatSequence(entry.sequence) : "—"}</span>
+                      <span className={s.seq}>
+                        {entry.session ? `${OP_SESSION_CODE[entry.session]}·` : ""}
+                        {entry.sequence ? formatSequence(entry.sequence) : "—"}
+                      </span>
                       <span>
                         <span className={s.who}>{entry.displayName}</span>
                         <span className={s.meta}>

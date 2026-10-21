@@ -7,7 +7,7 @@ import { clinicContact } from "@/content/clinic-contact";
 import { startHref, tokenFromHash } from "@/lib/registration/device-mode";
 import { forgetReceipt, recallReceipt } from "@/lib/registration/receipt-memory";
 import type { PatientStatus } from "@/lib/registration/receipt";
-import { formatDateIN, registrationDateIST } from "@/lib/registration/rules";
+import { OP_SESSION_LABEL, formatDateIN, registrationDateIST } from "@/lib/registration/rules";
 import {
   APPROXIMATE_NOTE,
   CONSULTATION_NOTE,
@@ -146,6 +146,7 @@ export function ThankYou({ checkin, kiosk }: { checkin: boolean; kiosk: boolean 
     dayTotal: status?.dayTotal ?? fresh?.dayTotal,
     checkedInAt: status?.checkedInAt ?? fresh?.checkedInAt,
     clinicDate: status?.clinicDate ?? fresh?.clinicDate,
+    session: status?.session ?? fresh?.session,
   };
   const state = status?.state;
   const summary = waitingSummary(status?.queue);
@@ -273,7 +274,7 @@ export function ThankYou({ checkin, kiosk }: { checkin: boolean; kiosk: boolean 
 
             {view.sequence !== undefined ? (
               <div className={s.number}>
-                <p className={s.numberLabel}>Your registration today</p>
+                <p className={s.numberLabel}>{view.session ? `Your registration · ${OP_SESSION_LABEL[view.session]}` : "Your registration today"}</p>
                 <p className={s.numberValue} data-testid="registration-number">
                   <span className={s.numberNo}>No.</span> {formatSequence(view.sequence)}
                 </p>
@@ -310,7 +311,8 @@ export function ThankYou({ checkin, kiosk }: { checkin: boolean; kiosk: boolean 
 
             {view.dayTotal !== undefined ? (
               <p className={s.total}>
-                {view.dayTotal} {view.dayTotal === 1 ? "registration" : "registrations"} completed today.
+                {view.dayTotal} {view.dayTotal === 1 ? "registration" : "registrations"} completed{" "}
+                {view.session ? `in ${OP_SESSION_LABEL[view.session]}` : "today"}.
               </p>
             ) : null}
           </section>

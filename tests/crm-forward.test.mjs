@@ -27,10 +27,12 @@ test("lead event is filed under Clinic registrations and never carries the signa
     reference: "BW-20261020-0001",
     clinicId: "main",
     clinicDate: "2026-10-20",
+    session: "evening",
     registeredAt: "2026-10-20T08:00:00.000Z",
     record,
   });
   assert.equal(event.reference, "BW-20261020-0001");
+  assert.equal(event.session, "evening");
   assert.equal(event.lead.category, "Clinic registrations");
   assert.equal(event.lead.source, "clinic_registration");
   assert.equal(event.lead.phone, "+919876543210");

@@ -1,6 +1,6 @@
-﻿import { approvedEndpoint } from "../registration/store.ts";
+import { approvedEndpoint } from "../registration/store.ts";
 import { QUEUE_STATES, type QueueState } from "../registration/receipt.ts";
-import { collapse } from "../registration/rules.ts";
+import { collapse, isOpSession, type OpSession } from "../registration/rules.ts";
 import { createPostgresAdminClient } from "../registration/postgres-store.ts";
 
 type Env = Record<string, string | undefined>;
@@ -10,6 +10,7 @@ export interface QueueEntry {
   id: string;
   reference: string;
   sequence?: number;
+  session?: OpSession;
   displayName: string;
   state: QueueState;
   checkedInAt?: string;
@@ -37,6 +38,7 @@ function parseEntry(raw: unknown): QueueEntry | null {
     state: e.state as QueueState,
   };
   if (typeof e.sequence === "number" && Number.isInteger(e.sequence) && e.sequence >= 1 && e.sequence <= 99_999) entry.sequence = e.sequence;
+  if (isOpSession(e.session)) entry.session = e.session;
   const checkedInAt = isoOrUndefined(e.checkedInAt);
   const updatedAt = isoOrUndefined(e.updatedAt);
   if (checkedInAt) entry.checkedInAt = checkedInAt;

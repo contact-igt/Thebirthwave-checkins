@@ -19,8 +19,9 @@ async function main() {
     CREATE TABLE IF NOT EXISTS registration_counters (
       clinic_id   TEXT NOT NULL,
       clinic_date DATE NOT NULL,
+      session     TEXT NOT NULL DEFAULT 'morning',
       last_seq    INTEGER NOT NULL DEFAULT 0,
-      PRIMARY KEY (clinic_id, clinic_date)
+      PRIMARY KEY (clinic_id, clinic_date, session)
     );
 
     CREATE TABLE IF NOT EXISTS registrations (
@@ -28,6 +29,7 @@ async function main() {
       idempotency_key  TEXT NOT NULL UNIQUE,
       clinic_id        TEXT NOT NULL,
       clinic_date      DATE NOT NULL,
+      session          TEXT NOT NULL DEFAULT 'morning',
       sequence         INTEGER NOT NULL,
       token_hash       TEXT NOT NULL UNIQUE,
       state            TEXT NOT NULL DEFAULT 'registered',
@@ -35,8 +37,30 @@ async function main() {
       checked_in_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       record           JSONB NOT NULL,
-      UNIQUE (clinic_id, clinic_date, sequence)
+      UNIQUE (clinic_id, clinic_date, session, sequence)
     );
+
+    -- Upgrade databases created before OP sessions existed (morning / evening numbered separately).
+    ALTER TABLE registration_counters ADD COLUMN IF NOT EXISTS session TEXT NOT NULL DEFAULT 'morning';
+    ALTER TABLE registrations ADD COLUMN IF NOT EXISTS session TEXT NOT NULL DEFAULT 'morning';
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.key_column_usage
+         WHERE table_schema = current_schema() AND table_name = 'registration_counters' AND constraint_name = 'registration_counters_pkey' AND column_name = 'session'
+      ) THEN
+        ALTER TABLE registration_counters DROP CONSTRAINT registration_counters_pkey;
+        ALTER TABLE registration_counters ADD PRIMARY KEY (clinic_id, clinic_date, session);
+      END IF;
+      ALTER TABLE registrations DROP CONSTRAINT IF EXISTS registrations_clinic_id_clinic_date_sequence_key;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conrelid = 'registrations'::regclass AND conname = 'registrations_session_sequence_key'
+      ) THEN
+        ALTER TABLE registrations ADD CONSTRAINT registrations_session_sequence_key
+          UNIQUE (clinic_id, clinic_date, session, sequence);
+      END IF;
+    END $$;
 
     CREATE INDEX IF NOT EXISTS idx_registrations_queue 
       ON registrations (clinic_id, clinic_date, state, queue_order);

@@ -1,7 +1,7 @@
 import pg from "pg";
 import crypto from "node:crypto";
 import type { RegistrationRecord } from "./rules.ts";
-import { registrationDateIST } from "./rules.ts";
+import { OP_SESSION_CODE, isOpSession, opSessionIST, registrationDateIST } from "./rules.ts";
 import type { RegistrationStore, StatusClient } from "./store.ts";
 import type { AdminClient, QueueEntry } from "../staff/admin.ts";
 import type { QueueState } from "./receipt.ts";
@@ -43,9 +43,10 @@ export function createPostgresStore(pool: pg.Pool = getPostgresPool()!): Registr
 
         // 1. Idempotency check: if request was already processed, return existing
         const existing = await client.query(
-          `SELECT r.id, r.sequence, r.clinic_date, r.checked_in_at, rc.last_seq as day_total
+          `SELECT r.id, r.sequence, r.clinic_date, r.session, r.checked_in_at, rc.last_seq as day_total
            FROM registrations r
-           LEFT JOIN registration_counters rc ON rc.clinic_id = r.clinic_id AND rc.clinic_date = r.clinic_date
+           LEFT JOIN registration_counters rc
+             ON rc.clinic_id = r.clinic_id AND rc.clinic_date = r.clinic_date AND rc.session = r.session
            WHERE r.idempotency_key = $1`,
           [context.idempotencyKey]
         );
@@ -67,6 +68,7 @@ export function createPostgresStore(pool: pg.Pool = getPostgresPool()!): Registr
                 : new Date(row.checked_in_at).toISOString(),
             clinicDate,
             clinicId: context.clinicId,
+            session: isOpSession(row.session) ? row.session : undefined,
           };
         }
 
@@ -77,26 +79,28 @@ export function createPostgresStore(pool: pg.Pool = getPostgresPool()!): Registr
         // 3. Atomically increment daily sequence for (clinicId, IST date)
         const now = new Date();
         const todayIST = registrationDateIST(now);
+        // Morning and evening OP are numbered separately; the session follows the IST clock.
+        const session = opSessionIST(now, process.env.OP_EVENING_STARTS);
 
         const counterRes = await client.query(
-          `INSERT INTO registration_counters (clinic_id, clinic_date, last_seq)
-           VALUES ($1, $2::date, 1)
-           ON CONFLICT (clinic_id, clinic_date)
+          `INSERT INTO registration_counters (clinic_id, clinic_date, session, last_seq)
+           VALUES ($1, $2::date, $3, 1)
+           ON CONFLICT (clinic_id, clinic_date, session)
            DO UPDATE SET last_seq = registration_counters.last_seq + 1
            RETURNING last_seq`,
-          [context.clinicId, todayIST]
+          [context.clinicId, todayIST, session]
         );
 
         const sequence = counterRes.rows[0].last_seq;
         const dateKey = todayIST.replaceAll("-", "");
-        const id = `BW-${dateKey}-${String(sequence).padStart(4, "0")}`;
+        const id = `BW-${dateKey}-${OP_SESSION_CODE[session]}-${String(sequence).padStart(4, "0")}`;
 
         // 4. Insert registration record
         const insertRes = await client.query(
-          `INSERT INTO registrations (id, idempotency_key, clinic_id, clinic_date, sequence, token_hash, record)
-           VALUES ($1, $2, $3, $4::date, $5, $6, $7)
+          `INSERT INTO registrations (id, idempotency_key, clinic_id, clinic_date, session, sequence, token_hash, record)
+           VALUES ($1, $2, $3, $4::date, $5, $6, $7, $8)
            RETURNING checked_in_at`,
-          [id, context.idempotencyKey, context.clinicId, todayIST, sequence, tokenHash, JSON.stringify(record)]
+          [id, context.idempotencyKey, context.clinicId, todayIST, session, sequence, tokenHash, JSON.stringify(record)]
         );
 
         const checkedInAt = insertRes.rows[0].checked_in_at;
@@ -110,6 +114,7 @@ export function createPostgresStore(pool: pg.Pool = getPostgresPool()!): Registr
               reference: id,
               clinicId: context.clinicId,
               clinicDate: todayIST,
+              session,
               registeredAt: new Date(checkedInAt).toISOString(),
               record,
             });
@@ -135,6 +140,7 @@ export function createPostgresStore(pool: pg.Pool = getPostgresPool()!): Registr
               : new Date(checkedInAt).toISOString(),
           clinicDate: todayIST,
           clinicId: context.clinicId,
+          session,
         };
       } catch (err) {
         await client.query("ROLLBACK");
@@ -151,10 +157,11 @@ export function createPostgresStatusClient(pool: pg.Pool = getPostgresPool()!): 
     async fetchStatus(token: string) {
       const tokenHash = hashToken(token);
       const res = await pool.query(
-        `SELECT r.id, r.sequence, r.clinic_id, r.clinic_date, r.state, r.queue_order, r.checked_in_at, r.updated_at,
+        `SELECT r.id, r.sequence, r.clinic_id, r.clinic_date, r.session, r.state, r.queue_order, r.checked_in_at, r.updated_at,
                 rc.last_seq as day_total
          FROM registrations r
-         LEFT JOIN registration_counters rc ON rc.clinic_id = r.clinic_id AND rc.clinic_date = r.clinic_date
+         LEFT JOIN registration_counters rc
+           ON rc.clinic_id = r.clinic_id AND rc.clinic_date = r.clinic_date AND rc.session = r.session
          WHERE r.token_hash = $1`,
         [tokenHash]
       );
@@ -166,15 +173,16 @@ export function createPostgresStatusClient(pool: pg.Pool = getPostgresPool()!): 
           ? registrationDateIST(row.clinic_date)
           : String(row.clinic_date).slice(0, 10);
 
-      // Compute queue ahead: patients earlier in today's queue who are active
+      // Queue ahead: earlier, still-active patients of the same OP session
       const aheadRes = await pool.query(
         `SELECT COUNT(*) as ahead
          FROM registrations
          WHERE clinic_id = $1
            AND clinic_date = $2
+           AND session = $3
            AND state IN ('registered', 'checked_in', 'waiting')
-           AND queue_order < $3`,
-        [row.clinic_id, row.clinic_date, row.queue_order]
+           AND queue_order < $4`,
+        [row.clinic_id, row.clinic_date, row.session, row.queue_order]
       );
 
       const ahead = parseInt(aheadRes.rows[0]?.ahead || "0", 10);
@@ -189,6 +197,7 @@ export function createPostgresStatusClient(pool: pg.Pool = getPostgresPool()!): 
             : new Date(row.checked_in_at).toISOString(),
         clinicDate,
         clinicId: row.clinic_id,
+        session: isOpSession(row.session) ? row.session : undefined,
         state: row.state,
         updatedAt:
           row.updated_at instanceof Date
@@ -214,7 +223,7 @@ export function createPostgresAdminClient(pool: pg.Pool = getPostgresPool()!): A
   return {
     async list(clinicId: string, clinicDate: string): Promise<QueueEntry[]> {
       const res = await pool.query(
-        `SELECT id, sequence, state, checked_in_at, updated_at, record->>'fullName' as full_name
+        `SELECT id, sequence, session, state, checked_in_at, updated_at, record->>'fullName' as full_name
          FROM registrations
          WHERE clinic_id = $1 AND clinic_date = $2::date
          ORDER BY queue_order ASC`,
@@ -225,6 +234,7 @@ export function createPostgresAdminClient(pool: pg.Pool = getPostgresPool()!): A
         id: row.id,
         reference: row.id,
         sequence: row.sequence,
+        session: isOpSession(row.session) ? row.session : undefined,
         displayName: (row.full_name || "Patient").split(" ")[0],
         state: row.state as QueueState,
         checkedInAt:
@@ -243,7 +253,7 @@ export function createPostgresAdminClient(pool: pg.Pool = getPostgresPool()!): A
         `UPDATE registrations
          SET state = $1, updated_at = NOW()
          WHERE id = $2
-         RETURNING id, sequence, state, checked_in_at, updated_at, record->>'fullName' as full_name`,
+         RETURNING id, sequence, session, state, checked_in_at, updated_at, record->>'fullName' as full_name`,
         [state, id]
       );
 
@@ -253,6 +263,7 @@ export function createPostgresAdminClient(pool: pg.Pool = getPostgresPool()!): A
         id: row.id,
         reference: row.id,
         sequence: row.sequence,
+        session: isOpSession(row.session) ? row.session : undefined,
         displayName: (row.full_name || "Patient").split(" ")[0],
         state: row.state as QueueState,
         checkedInAt:

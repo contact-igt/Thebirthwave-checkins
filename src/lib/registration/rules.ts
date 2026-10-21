@@ -194,6 +194,32 @@ export function registrationDateIST(now: Date = new Date()): string {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+/** The clinic runs two OP sessions a day; each has its own registration numbering. */
+export const OP_SESSIONS = ["morning", "evening"] as const;
+export type OpSession = (typeof OP_SESSIONS)[number];
+export const OP_SESSION_LABEL: Record<OpSession, string> = { morning: "Morning OP", evening: "Evening OP" };
+export const OP_SESSION_CODE: Record<OpSession, string> = { morning: "M", evening: "E" };
+export const DEFAULT_EVENING_STARTS = "14:00";
+
+export function isOpSession(value: unknown): value is OpSession {
+  return value === "morning" || value === "evening";
+}
+
+/**
+ * Which OP session a registration belongs to, by the clock in IST: before the evening start
+ * (default 14:00, set `OP_EVENING_STARTS=HH:MM` to move it) is morning, from then on is evening.
+ */
+export function opSessionIST(now: Date = new Date(), eveningStarts: string = DEFAULT_EVENING_STARTS): OpSession {
+  const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(eveningStarts.trim());
+  const [h, m] = match ? [Number(match[1]), Number(match[2])] : [14, 0];
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+      .formatToParts(now)
+      .map((p) => [p.type, p.value]),
+  );
+  return Number(parts.hour) * 60 + Number(parts.minute) >= h * 60 + m ? "evening" : "morning";
+}
+
 /** YYYY-MM-DD → DD/MM/YYYY (India). */
 export function formatDateIN(iso: string): string {
   const [y, m, d] = iso.split("-");

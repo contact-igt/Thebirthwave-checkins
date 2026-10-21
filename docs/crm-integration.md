@@ -3,6 +3,12 @@
 Every clinic registration becomes **one lead** in the main CRM leads list, under the label **Clinic registrations**.
 The same phone number registering on another day is a **new lead**: the CRM upserts on `reference`, never on phone.
 
+## OP sessions
+
+Morning and evening OP are numbered separately, each from 001. A registration before 14:00 IST is `morning`,
+from 14:00 it is `evening` (set `OP_EVENING_STARTS=HH:MM` in Vercel to move the cutoff). References look like
+`BW-20261021-M-0003` / `BW-20261021-E-0003`, and every lead carries `session`. The `reference` stays unique across sessions.
+
 ## How a lead reaches the CRM
 
 1. The patient submits the form. The registration and a `crm_outbox` row are saved in one transaction.
@@ -28,6 +34,7 @@ Body (the signature image is deliberately not sent):
   "reference": "BW-20261020-0007",
   "clinicId": "main",
   "clinicDate": "2026-10-20",
+  "session": "morning",
   "registeredAt": "2026-10-20T08:00:00.000Z",
   "lead": {
     "source": "clinic_registration",
@@ -48,7 +55,7 @@ Create the lead on first sight of a `reference`; ignore repeats.
 ## Pull API (backfill / reconciliation), `Authorization: Bearer <CRM_SHARED_SECRET>`
 
 - `GET /api/crm/leads?since=<cursor>&limit=50` returns `{ ok, leads: [<same body as above>], nextCursor }`. Start with `since=0`.
-- `GET /api/crm/leads/count?date=YYYY-MM-DD` returns `{ ok, date, count }` (clinic day, IST; default today).
+- `GET /api/crm/leads/count?date=YYYY-MM-DD` returns `{ ok, date, count, bySession: { morning, evening } }` (clinic day, IST; default today).
 
 ## Environment variables (registration app, Vercel)
 
