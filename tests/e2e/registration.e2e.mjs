@@ -557,6 +557,11 @@ const mockSuccess = async (page, captured, delay = 0) => {
 
 test("successful submission (network-mocked): payload, receipt, data cleared, kiosk reset", async () => {
   const { page, context, requests, consoleErrors } = await newPage(VIEWPORTS[4]);
+  let unloadDialog = false;
+  page.on("dialog", async (dialog) => {
+    unloadDialog = true;
+    await dialog.dismiss();
+  });
   await page.clock.install();
   const captured = [];
   await mockSuccess(page, captured);
@@ -572,6 +577,7 @@ test("successful submission (network-mocked): payload, receipt, data cleared, ki
   await page.getByRole("button", { name: "Submit registration" }).click();
   await page.getByRole("heading", { name: /checked in/ }).waitFor();
   await page.getByText("BW-TEST-0001").waitFor();
+  assert.equal(unloadDialog, false, "a confirmed registration must navigate without a leave-page warning");
 
   assert.equal(captured.length, 1);
   const body = JSON.parse(captured[0].body);
