@@ -80,6 +80,7 @@ export function RegistrationFlow({ kiosk = false }: { kiosk?: boolean; checkin?:
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
   const sendingRef = useRef(false);
+  const submittedRef = useRef(false);
   const attempt = useRef<{ key: string; fingerprint: string } | null>(null);
 
   const reset = useCallback(() => {
@@ -93,6 +94,7 @@ export function RegistrationFlow({ kiosk = false }: { kiosk?: boolean; checkin?:
     setIdleWarning(false);
     attempt.current = null;
     sendingRef.current = false;
+    submittedRef.current = false;
   }, []);
 
   // ---- derived ------------------------------------------------------------
@@ -126,6 +128,7 @@ export function RegistrationFlow({ kiosk = false }: { kiosk?: boolean; checkin?:
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => {
+      if (submittedRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -237,6 +240,7 @@ export function RegistrationFlow({ kiosk = false }: { kiosk?: boolean; checkin?:
         attempt.current = null;
         const target = thankYouHref(rest.token, kiosk);
         if (typeof window !== "undefined") {
+          submittedRef.current = true;
           window.location.replace(target);
         } else {
           router.replace(target);
